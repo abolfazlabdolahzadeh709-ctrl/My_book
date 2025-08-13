@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>کوییز ابوالفضل</title>
+  <style>
+    body { font-family: sans-serif; direction: rtl; background: #f0f0f0; padding: 20px; }
+    .question { margin-bottom: 20px; background: #fff; padding: 15px; border-radius: 8px; }
+    button { margin-top: 10px; padding: 8px 16px; }
+  </style>
+</head>
+<body>
+
+  <h1>کوییز مخصوص ابوالفضل 😎</h1>
+
+  <div class="question" id="q1">
+    <p>کسی که ابوالفضل دوسش داره کیه؟</p>
+    <input type="radio" name="q1" value="رضوان"> رضوان<br>
+    <input type="radio" name="q1" value="اسد"> اسد<br>
+    <input type="radio" name="q1" value="ریحانه"> ریحانه<br>
+    <input type="radio" name="q1" value="محمدقلی"> محمدقلی<br>
+  </div>
+
+  <div class="question" id="q2">
+    <p>چه کسی باعث دلگرمی ابوالفضل هست؟</p>
+    <input type="radio" name="q2" value="اسد"> اسد<br>
+    <input type="radio" name="q2" value="رضوان"> رضوان<br>
+    <input type="radio" name="q2" value="ریحانه"> ریحانه<br>
+    <input type="radio" name="q2" value="همه موارد"> همه موارد<br>
+  </div>
+
+  <div class="question" id="q3">
+    <p>ابوالفضل چرا می‌ره تکواندو؟</p>
+    <input type="radio" name="q3" value="علاقه داره"> علاقه داره<br>
+    <input type="radio" name="q3" value="خالش آدم بدی هست"> خالش آدم بدی هست<br>
+    <input type="radio" name="q3" value="مامانش زورش می‌کنه"> مامانش زورش می‌کنه<br>
+    <input type="radio" name="q3" value="چون خفنه"> چون خفنه<br>
+  </div>
+
+  <button onclick="checkAnswers()">بررسی جواب‌ها</button>
+  <p id="result"></p>
+
+  <script>
+    function checkAnswers() {
+      const answers = {
+        q1: "ریحانه",
+        q2: "همه موارد",
+        q3: "چون خفنه"
+      };
+
+      let score = 0;
+      for (let key in answers) {
+        const selected = document.querySelector(`input[name="${key}"]:checked`);
+        if (selected && selected.value === answers[key]) {
+          score++;
+        }
+      }
+
+      document.getElementById("result").innerText = `امتیازت شد: ${score} از 3 🎉`;
+    }
+  </script>
+
+</body>
+</html>
