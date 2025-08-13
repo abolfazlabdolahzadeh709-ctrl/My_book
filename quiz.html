@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>بازی پرسش و پاسخ</title>
+  <style>
+    body { font-family: sans-serif; background: #f0f0f0; text-align: center; padding: 50px; }
+    .question { font-size: 20px; margin-bottom: 20px; }
+    .option { display: block; margin: 10px; padding: 10px; background: #fff; border: 1px solid #ccc; cursor: pointer; }
+    .option:hover { background: #e0e0ff; }
+    #result { margin-top: 30px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>بازی پرسش و پاسخ</h1>
+  <div class="question" id="question">سوال بارگذاری می‌شود...</div>
+  <div id="options"></div>
+  <div id="result"></div>
+
+  <script>
+    const quiz = [
+      {
+        question: "نام قهرمان اصلی داستان چیست؟",
+        options: ["آرمان", "سایروس", "الارا", "نورا"],
+        answer: "سایروس"
+      },
+      {
+        question: "کدام موجود در سرزمین خاطرات گمشده زندگی می‌کند؟",
+        options: ["اژدهای نقره‌ای", "گرگ آتشین", "پری شب‌گرد", "عنکبوت زمان"],
+        answer: "عنکبوت زمان"
+      }
+    ];
+
+    let current = 0;
+
+    function loadQuestion() {
+      const q = quiz[current];
+      document.getElementById("question").textContent = q.question;
+      const optionsDiv = document.getElementById("options");
+      optionsDiv.innerHTML = "";
+      q.options.forEach(opt => {
+        const btn = document.createElement("div");
+        btn.className = "option";
+        btn.textContent = opt;
+        btn.onclick = () => checkAnswer(opt);
+        optionsDiv.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(selected) {
+      const correct = quiz[current].answer;
+      const result = document.getElementById("result");
+      if (selected === correct) {
+        result.textContent = "✅ درست گفتی!";
+      } else {
+        result.textContent = "❌ اشتباه بود. جواب درست: " + correct;
+      }
+      current++;
+      if (current < quiz.length) {
+        setTimeout(() => {
+          result.textContent = "";
+          loadQuestion();
+        }, 2000);
+      } else {
+        setTimeout(() => {
+          result.textContent = "🎉 بازی تمام شد!";
+          document.getElementById("question").textContent = "";
+          document.getElementById("options").innerHTML = "";
+        }, 2000);
+      }
+    }
+
+    loadQuestion();
+  </script>
+</body>
+</html>
