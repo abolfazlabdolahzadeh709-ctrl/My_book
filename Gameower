@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>بازی قارچ‌خور ابوالفضل</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: skyblue;
+    }
+    #game {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      background: linear-gradient(skyblue, green);
+    }
+    #player {
+      width: 50px;
+      height: 50px;
+      background: red;
+      position: absolute;
+      bottom: 0;
+      left: 50px;
+    }
+    .block {
+      width: 50px;
+      height: 50px;
+      background: brown;
+      position: absolute;
+      bottom: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="player"></div>
+    <div class="block" style="left: 200px;"></div>
+    <div class="block" style="left: 300px;"></div>
+  </div>
+
+  <script>
+    const player = document.getElementById("player");
+    let position = 50;
+
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "ArrowRight") {
+        position += 10;
+      } else if (e.key === "ArrowLeft") {
+        position -= 10;
+      }
+      player.style.left = position + "px";
+    });
+  </script>
+</body>
+</html>
