@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>هوش مصنوعی خانواده‌ی ابوالفضل</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #fce4ec;
+      padding: 20px;
+      text-align: center;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+    #response {
+      margin-top: 20px;
+      font-weight: bold;
+      color: #880e4f;
+    }
+  </style>
+</head>
+<body>
+  <h1>🤖 هوش مصنوعی خانواده‌ی ابوالفضل</h1>
+  <p>سؤال‌ت رو درباره‌ی رضوان، آید، ریحانه یا عارف بپرس!</p>
+  <input type="text" id="question" placeholder="مثلاً: ریحانه چند سالشه؟">
+  <button onclick="answer()">بپرس!</button>
+  <div id="response"></div>
+
+  <script>
+    function answer() {
+      const q = document.getElementById("question").value.toLowerCase();
+      let r = "";
+
+      if (q.includes("رضوان")) {
+        r = "رضوان ۳۱ سالشه. یه آدم خاص و دوست‌داشتنیه!";
+      } else if (q.includes("آید")) {
+        r = "آید ۴۱ سالشه. زن
