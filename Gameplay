@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>بازی مراقبت از ابولفضل 🍎</title>
+  <style>
+    body {
+      background: linear-gradient(to bottom, #ffe0e0, #fff0c0);
+      font-family: "Vazir", sans-serif;
+      text-align: center;
+      padding: 30px;
+      color: #4e342e;
+    }
+    h1 {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+    #game {
+      background: #fff8f0;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    #apple {
+      width: 150px;
+      height: 150px;
+      background: radial-gradient(circle, #ff4d4d, #cc0000);
+      border-radius: 50%;
+      margin: 20px auto;
+      position: relative;
+    }
+    #tattoo {
+      position: absolute;
+      top: 60px;
+      left: 60px;
+      font-size: 40px;
+      color: white;
+      font-weight: bold;
+      transform: rotate(-20deg);
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background-color: #ffab91;
+      color: white;
+      cursor: pointer;
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🍎 مراقبت از ابولفضل با تتوی A</h1>
+  <div id="game">
+    <div id="apple">
+      <div id="tattoo">A</div>
+    </div>
+    <button onclick="feed()">🍔 غذا بده</button>
+    <button onclick="play()">🎾 بازی کن</button>
+    <button onclick="sleep()">😴 بخوابون</button>
+    <button onclick="clean()">🧼 تمیزش کن</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    let happiness = 50;
+    let energy = 50;
+    let cleanliness = 50;
+
+    function updateStatus() {
+      document.getElementById("status").innerHTML =
+        `شادی: ${happiness} | انرژی: ${energy} | تمیزی: ${cleanliness}`;
+    }
+
+    function feed() {
+      happiness += 10;
+      energy += 5;
+      cleanliness -= 5;
+      checkLimits();
+    }
+
+    function play() {
+      happiness += 15;
+      energy -= 10;
+      cleanliness -= 5;
+      checkLimits();
+    }
+
+    function sleep() {
+      energy += 20;
+      happiness -= 5;
+      cleanliness -= 5;
+      checkLimits();
+    }
+
+    function clean() {
+      cleanliness += 20;
+      happiness += 5;
+      checkLimits();
+    }
+
+    function checkLimits() {
+      happiness = Math.min(100, Math.max(0, happiness));
+      energy = Math.min(100, Math.max(0, energy));
+      cleanliness = Math.min(100, Math.max(0, cleanliness));
+      updateStatus();
+    }
+
+    updateStatus();
+  </script>
+</body>
+</html>
