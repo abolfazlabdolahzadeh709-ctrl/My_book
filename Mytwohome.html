@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>My Home 3D</title>
+  <style>
+    html, body { margin:0; padding:0; height:100%; background:#0f1116; overflow:hidden; }
+    #hud {
+      position: fixed; inset: 0; pointer-events: none; font-family: sans-serif; direction: rtl;
+    }
+    .bars {
+      position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 10px; justify-content: center;
+    }
+    .bar { background:#0005; border-radius: 10px; width: 32%; height: 14px; overflow: hidden; box-shadow: 0 0 0 1px #ffffff20 inset; }
+    .fill { height:100%; width:50%; background: linear-gradient(90deg,#ff7b7b,#ff5252); }
+    .fill.fun { background: linear-gradient(90deg,#5ab0ff,#2d8cff); }
+    .fill.hunger { background: linear-gradient(90deg,#ffd36b,#ffa600); }
+    .labels {
+      position: absolute; top: 28px; left: 10px; right: 10px; display: flex; gap: 10px; justify-content: center; color:#fff; font-size: 12px; text-shadow:0 1px 2px #000;
+    }
+    #clock {
+      position: absolute; top: 10px; left: 10px; color:#fff; background:#0006; padding:6px 10px; border-radius:10px; font-size: 12px; box-shadow:0 0 0 1px #ffffff20 inset;
+    }
+    #fps {
+      position: absolute; top: 10px; right: 10px; color:#fff; background:#0006; padding:6px 10px; border-radius:10px; font-size: 12px; opacity:.6;
+    }
+    #prompt {
+      position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%);
+      color:#fff; background:#2b2f36cc; padding:10px 14px; border-radius:10px; font-size: 14px; display:none;
+      box-shadow: 0 8px 20px #0006, 0 0 0 1px #ffffff22 inset;
+    }
+    #action {
+      position: absolute; bottom: 140px; right: 20px; width: 88px; height: 88px; border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #6cc48c, #2f9e68); color:#fff; font-weight:bold; font-size:14px;
+      display: none; align-items: center; justify-content: center; box-shadow: 0 10px 30px #0007, 0 0 0 2px #ffffff22 inset;
+      pointer-events: auto;
+    }
+    #joystick {
+      position: absolute; bottom: 20px; left: 20px; width: 140px; height: 140px; pointer-events: auto;
+    }
+    #joy-base {
+      position: absolute; width: 100%; height: 100%; border-radius: 50%; background: #1a1f27cc; box-shadow: 0 0 0 2px #ffffff22 inset, 0 8px 20px #0007;
+    }
+    #joy-knob {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 64px; height: 64px; border-radius: 50%; background: #4e9cff; box-shadow: inset 0 0 0 2px #ffffff33, 0 8px 20px #0009;
+    }
+    #tip {
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+      color:#ffffffcc; font-size: 12px; text-shadow:0 1px 2px #000;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div id="clock">08:00</div>
+    <div id="fps">FPS</div>
+    <div class="bars">
+      <div class="bar"><div id="bar-energy" class="fill" style="width: 80%"></div></div>
+      <div class="bar"><div id="bar-fun" class="fill fun" style="width: 70%"></div></div>
+      <div class="bar"><div id="bar-hunger" class="fill hunger" style="width: 60%"></div></div>
+    </div>
+    <div class="labels">
+      <div>انرژی</div><div>شادی</div><div>گرسنگی</div>
+    </div>
+    <div id="prompt">به خانه/کافه/پارک نزدیک شدی</div>
+    <div id="action">انجام</div>
+    <div id="joystick">
+      <div id="joy-base"></div>
+      <div id="joy-knob"></div>
+    </div>
+    <div id="tip">حرکت با جوی‌استیک • نزدیک خانه بخواب، کافه غذا بخور، پارک تفریح کن</div>
+  </div>
+
+  <!-- Three.js (global THREE) -->
+  <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
+  <script>
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    // Scene & Camera
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0e1016);
+    scene.fog = new THREE.Fog(0x0e1016, 40, 220);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 18, 22);
+
+    // Lights
+    const hemi = new THREE.HemisphereLight(0xbfd8ff, 0x223344, 0.6);
+    scene.add(hemi);
+
+    const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+    sun.position.set(20, 30, 10);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.left = -60; sun.shadow.camera.right = 60; sun.shadow.camera.top = 60; sun.shadow.camera.bottom = -60;
+    scene.add(sun);
+
+    // Ground base
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(400, 400),
+      new THREE.MeshStandardMaterial({ color: 0x1a2028, roughness: 1, metalness: 0 })
+    );
+    ground.rotation.x = -Math.PI/2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // City parameters
+    const GRID = 18;             // تعداد سلول‌ها در هر محور
+    const CELL = 8;              // اندازه هر سلول (متر فرضی)
+    const ROAD_EVERY = 3;        // هر چند سلول یک خیابان
+    const CITY_OFFSET = -((GRID * CELL)/2);
+
+    const cityGroup = new THREE.Group();
+    scene.add(cityGroup);
+
+    const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x222831, roughness: .9, metalness: 0.1 });
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
+    const grassMat = new THREE.MeshStandardMaterial({ color: 0x24312a, roughness: .95, metalness: 0 });
+
+    // Roads and plots
+    const roadWidth = CELL * 0.8;
+    const half = GRID * CELL / 2;
+
+    // Draw checker of plots with roads
+    for (let i = 0; i < GRID; i++) {
+      for (let j = 0; j < GRID; j++) {
+        const x = CITY_OFFSET + i * CELL + CELL/2;
+        const z = CITY_OFFSET + j * CELL + CELL/2;
+        const isRoad = (i % ROAD_EVERY === 0) || (j % ROAD_EVERY === 0);
+
+        if (isRoad) {
+          // Asphalt tile
+          const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(CELL, CELL), asphaltMat);
+          asphalt.rotation.x = -Math.PI/2;
+          asphalt.position.set(x, 0.001, z);
+          asphalt.receiveShadow = true;
+          cityGroup.add(asphalt);
+
+          // Lane line (center)
+          const line = new THREE.Mesh(new THREE.PlaneGeometry(CELL*0.9, 0.15), lineMat);
+          line.rotation.x = -Math.PI/2;
+          line.position.set(x, 0.002, z);
+          cityGroup.add(line);
+
+          // Street light on corners sometimes
+          if ((i + j) % (ROAD_EVERY*2) === 0) addStreetLight(x + CELL*0.4, z + CELL*0.4);
+        } else {
+          // Grass plot
+          const grass = new THREE.Mesh(new THREE.PlaneGeometry(CELL, CELL), grassMat);
+          grass.rotation.x = -Math.PI/2;
+          grass.position.set(x, 0.0005, z);
+          grass.receiveShadow = true;
+          cityGroup.add(grass);
+
+          // Building
+          const w = CELL * (0.6 + Math.random()*0.3);
+          const d = CELL * (0.6 + Math.random()*0.3);
+          const h = 3 + Math.random()*18;
+
+          const geo = new THREE.BoxGeometry(w, h, d);
+          const col = new THREE.Color().setHSL(0.58 + Math.random()*0.1, 0.2, 0.5 + Math.random()*0.1);
+          const mat = new THREE.MeshStandardMaterial({
+            color: col, roughness: 0.8, metalness: 0.2,
+            emissive: 0x10161c, emissiveIntensity: 0.0
+          });
+          const b = new THREE.Mesh(geo, mat);
+          b.position.set(x, h/2, z);
+          b.castShadow = true; b.receiveShadow = true;
+          cityGroup.add(b);
+
+          // Decorative rim (roof)
+          const rim = new THREE.Mesh(new THREE.BoxGeometry(w*1.02, 0.2, d*1.02),
+            new THREE.MeshStandardMaterial({ color: 0x20242c, roughness: .9 }));
+          rim.position.set(x, h + 0.1, z);
+          rim.castShadow = true;
+          cityGroup.add(rim);
+        }
+      }
+    }
+
+    function addStreetLight(x, z) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.12, 3.4, 12),
+        new THREE.MeshStandardMaterial({ color: 0x888b91, roughness: .6 })
+      );
+      pole.position.set(x, 1.7, z);
+      pole.castShadow = true;
+      cityGroup.add(pole);
+
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xf8f0d0, emissive: 0x000000 })
+      );
+      head.position.set(x, 3.5, z);
+      head.castShadow = false;
+      cityGroup.add(head);
+
+      const pl = new THREE.PointLight(0xfff2c0, 0.0, 10, 2.0); // intensity dynamic at night
+      pl.position.set(x, 3.5, z);
+      pl.castShadow = false;
+      cityGroup.add(pl);
+
+      streetLights.push({ light: pl, head });
+    }
+
+    // Player (capsule)
+    const player = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.5, 1.0, 6, 12),
+      new THREE.MeshStandardMaterial({ color: 0x4e9cff, roughness: .6, metalness: .1 })
+    );
+    player.position.set(0, 1.2, 0);
+    player.castShadow = true;
+    scene.add(player);
+
+    // Player shadow blob
+    const blobGeo = new THREE.CircleGeometry(0.8, 24);
+    const blobMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25 });
+    const blob = new THREE.Mesh(blobGeo, blobMat);
+    blob.rotation.x = -Math.PI/2;
+    blob.position.y = 0.01;
+    scene.add(blob);
+
+    // Points of interest (home, cafe, park)
+    const poi = [];
+    function addPOI(name, xCell, zCell, color) {
+      const x = CITY_OFFSET + xCell * CELL + CELL/2;
+      const z = CITY_OFFSET + zCell * CELL + CELL/2;
+
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.2, 0.2, 0.2, 12),
+        new THREE.MeshStandardMaterial({ color: 0x1f2530, roughness: .8 })
+      );
+      base.position.set(x, 0.1, z); base.receiveShadow = true; scene.add(base);
+
+      const mark = new THREE.Mesh(
+        new THREE.TorusKnotGeometry(0.35, 0.08, 50, 8, 1, 3),
+        new THREE.MeshStandardMaterial({ color, emissive: 0x000000, metalness: .3, roughness: .4 })
+      );
+      mark.position.set(x, 1.2, z); mark.castShadow = true; scene.add(mark);
+
+      poi.push({ name, x, z, mark, color });
+    }
+
+    addPOI('home', 3, 3, 0x6cc48c);
+    addPOI('cafe', GRID - 4, 3, 0xffa600);
+    addPOI('park', Math.floor(GRID/2), GRID - 4, 0x2d8cff);
+
+    // Streetlights storage for day/night control
+    const streetLights = [];
+
+    // HUD handles
+    const barEnergy = document.getElementById('bar-energy');
+    const barFun = document.getElementById('bar-fun');
+    const barHunger = document.getElementById('bar-hunger');
+    const prompt = document.getElementById('prompt');
+    const actionBtn = document.getElementById('action');
+    const clockEl = document.getElementById('clock');
+    const fpsEl = document.getElementById('fps');
+
+    // Needs state
+    const needs = {
+      energy: 100,
+      fun: 75,
+      hunger: 60
+    };
+
+    // Decay per second
+    const decay = { energy: 0.8/60, fun: 1.0/60, hunger: 1.2/60 };
+
+    // Day/Night cycle
+    const DAY_LEN = 180; // seconds
+    let dayT = 8/24 * DAY_LEN; // start 8:00
+    function formatClock(t) {
+      const hours = Math.floor((t/DAY_LEN)*24) % 24;
+      return String(hours).padStart(2,'0') + ':00';
+    }
+
+    // Movement
+    const velocity = new THREE.Vector3();
+    let speed = 6.0;
+    const input = { x: 0, y: 0 };
+
+    // Keyboard (optional for desktop)
+    const keys = {};
+    window.addEventListener('keydown', (e)=>{ keys[e.code]=true; });
+    window.addEventListener('keyup', (e)=>{ keys[e.code]=false; });
+
+    // Joystick
+    const joy = {
+      base: document.getElementById('joy-base'),
+      knob: document.getElementById('joy-knob'),
+      el: document.getElementById('joystick'),
+      active: false, center:{x:0,y:0}, value:{x:0,y:0}, radius: 70
+    };
+    function joyStart(e){
+      joy.active = true;
+      const rect = joy.el.getBoundingClientRect();
+      joy.center.x = rect.left + rect.width/2;
+      joy.center.y = rect.top + rect.height/2;
+      joyMove(e);
+    }
+    function joyMove(e){
+      if(!joy.active) return;
+      const touch = e.touches ? e.touches[0] : e;
+      const dx = touch.clientX - joy.center.x;
+      const dy = touch.clientY - joy.center.y;
+      const dist = Math.min(Math.hypot(dx,dy), joy.radius);
+      const ang = Math.atan2(dy, dx);
+      joy.value.x = (dist/joy.radius) * Math.cos(ang);
+      joy.value.y = (dist/joy.radius) * Math.sin(ang);
+      joy.knob.style.left = (50 + joy.value.x*50) + '%';
+      joy.knob.style.top = (50 + joy.value.y*50) + '%';
+    }
+    function joyEnd(){
+      joy.active = false; joy.value.x=0; joy.value.y=0;
+      joy.knob.style.left = '50%'; joy.knob.style.top = '50%';
+    }
+    joy.el.addEventListener('touchstart', joyStart, {passive:false});
+    joy.el.addEventListener('touchmove', joyMove, {passive:false});
+    joy.el.addEventListener('touchend', joyEnd);
+    joy.el.addEventListener('mousedown', joyStart);
+    window.addEventListener('mousemove', joyMove);
+    window.addEventListener('mouseup', joyEnd);
+
+    // Interaction
+    let nearPOI = null;
+    actionBtn.addEventListener('click', ()=> {
+      if (!nearPOI) return;
+      if (nearPOI.name === 'home') needs.energy = Math.min(100, needs.energy + 45);
+      if (nearPOI.name === 'cafe') needs.hunger = Math.min(100, needs.hunger + 45);
+      if (nearPOI.name === 'park') needs.fun    = Math.min(100, needs.fun + 45);
+    });
+
+    // Update HUD bars
+    function updateBars() {
+      barEnergy.style.width = Math.max(0, Math.min(100, needs.energy)) + '%';
+      barFun.style.width    = Math.max(0, Math.min(100, needs.fun)) + '%';
+      barHunger.style.width = Math.max(0, Math.min(100, needs.hunger)) + '%';
+    }
+
+    // Camera follow helper
+    const camOffset = new THREE.Vector3(0, 14, 16);
+    function updateCamera(dt){
+      const target = player.position.clone().add(camOffset);
+      camera.position.lerp(target, 1 - Math.pow(0.0001, dt)); // smooth
+      camera.lookAt(player.position.x, 1.2, player.position.z);
+    }
+
+    // Performance
+    let last = performance.now();
+    let fpsAcc=0, fpsFrames=0, fpsTimer=0;
+
+    renderer.setAnimationLoop((time)=>{
+      const now = performance.now();
+      let dt = (now - last) / 1000;
+      last = now;
+      dt = Math.min(dt, 0.05);
+
+      // Input resolve (keyboard + joystick)
+      let ix = joy.value.x;
+      let iy = joy.value.y;
+      if (keys['ArrowUp']||keys['KeyW']) iy -= 1;
+      if (keys['ArrowDown']||keys['KeyS']) iy += 1;
+      if (keys['ArrowLeft']||keys['KeyA']) ix -= 1;
+      if (keys['ArrowRight']||keys['KeyD']) ix += 1;
+
+      const len = Math.hypot(ix, iy);
+      if (len > 1) { ix/=len; iy/=len; }
+
+      // Convert screen joystick to world forward (camera aligned)
+      const forward = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); forward.y=0; forward.normalize();
+      const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).negate();
+
+      velocity.copy(forward).multiplyScalar(-iy).addScaledVector(right, ix).setY(0);
+      velocity.normalize().multiplyScalar(speed);
+      player.position.addScaledVector(velocity, dt);
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -half+1, half-1);
+      player.position.z = THREE.MathUtils.clamp(player.position.z, -half+1, half-1);
+      blob.position.set(player.position.x, 0.01, player.position.z);
+
+      // Face movement direction
+      if (velocity.lengthSq() > 0.0001) {
+        const angle = Math.atan2(velocity.x, velocity.z);
+        player.rotation.y = angle;
+      }
+
+      // Needs decay
+      needs.energy  = Math.max(0, needs.energy  - decay.energy * dt * 60);
+      needs.fun     = Math.max(0, needs.fun     - decay.fun * dt * 60);
+      needs.hunger  = Math.max(0, needs.hunger  - decay.hunger * dt * 60);
+      updateBars();
+
+      // Day/night
+      dayT = (dayT + dt) % DAY_LEN;
+      const tNorm = dayT / DAY_LEN; // 0..1
+      const ang = (tNorm * Math.PI * 2) - Math.PI/2; // start morning
+      const sunDir = new THREE.Vector3(Math.cos(ang), Math.sin(ang), 0.4).normalize();
+      sun.position.copy(sunDir.clone().multiplyScalar(80));
+      sun.intensity = THREE.MathUtils.clamp(sunDir.y * 1.2, 0.05, 1.2);
+      hemi.intensity = THREE.MathUtils.lerp(0.15, 0.7, Math.max(0, sunDir.y));
+
+      const skyDay = new THREE.Color(0x7fb3ff);
+      const skyNight = new THREE.Color(0x0e1016);
+      scene.background = skyNight.clone().lerp(skyDay, Math.max(0, sunDir.y));
+      scene.fog.color = scene.background;
+
+      // Lamps and building windows emissive at night
+      const nightFactor = THREE.MathUtils.clamp(0.6 - sunDir.y, 0, 1);
+      for (const s of streetLights) {
+        s.light.intensity = nightFactor * 1.5;
+        s.head.material.emissive = new THREE.Color(0xffe7b3);
+        s.head.material.emissiveIntensity = nightFactor * 1.6;
+      }
+      cityGroup.children.forEach(m=>{
+        if (m.material && m.material.emissive !== undefined && m.material.color && m.geometry.type==='BoxGeometry'){
+          m.material.emissiveIntensity = nightFactor * 0.35;
+        }
+      });
+
+      // Clock UI
+      clockEl.textContent = formatClock(dayT);
+
+      // Interaction (nearby POI)
+      nearPOI = null;
+      let nearestDist = 1.6;
+      for (const p of poi) {
+        const dx = p.x - player.position.x;
+        const dz = p.z - player.position.z;
+        const d = Math.hypot(dx,dz);
+        p.mark.material.emissive = new THREE.Color(p.color);
+        p.mark.material.emissiveIntensity = d < 3 ? 0.5 : 0.05;
+        if (d < nearestDist) { nearestDist = d; nearPOI = p; }
+      }
+      if (nearPOI) {
+        prompt.style.display = 'block';
+        actionBtn.style.display = 'flex';
+        actionBtn.textContent = nearPOI.name==='home' ? 'خواب' : nearPOI.name==='cafe' ? 'غذا' : 'تفریح';
+      } else {
+        prompt.style.display = 'none';
+        actionBtn.style.display = 'none';
+      }
+
+      // Camera follow
+      updateCamera(dt);
+
+      // Render
+      renderer.render(scene, camera);
+
+      // FPS (approx)
+      fpsAcc += 1/dt; fpsFrames++; fpsTimer += dt;
+      if (fpsTimer > 0.5) {
+        const fps = Math.round(fpsFrames / fpsTimer);
+        fpsEl.textContent = fps + ' FPS';
+        fpsAcc=0; fpsFrames=0; fpsTimer=0;
+      }
+    });
+
+    // Resize
+    window.addEventListener('resize', ()=>{
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    }, {passive:true});
+  </script>
+</body>
+  </html>
