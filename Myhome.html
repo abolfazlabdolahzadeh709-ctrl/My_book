@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<title>زندگی کوچک من</title>
+<style>
+  html, body { margin:0; padding:0; background:#1b1f26; height:100%; overflow:hidden; font-family: sans-serif; }
+  #c { display:block; width:100vw; height:100vh; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  let DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  let W = 0, H = 0;
+
+  function resize() {
+    DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    W = Math.floor(window.innerWidth * DPR);
+    H = Math.floor(window.innerHeight * DPR);
+    canvas.width = W; canvas.height = H;
+    canvas.style.width = (W / DPR) + 'px';
+    canvas.style.height = (H / DPR) + 'px';
+    layoutRoom();
+  }
+  window.addEventListener('resize', resize);
+
+  // Game state
+  const state = {
+    player: { x: 0, y: 0, r: 16, speed: 160, tx: 0, ty: 0, using:false, useTimer:0, useType:null },
+    needs: { energy: 100, fun: 100 },
+    decay: { energy: 6, fun: 4 }, // per minute (adjusted in dt math)
+    day: { t: 0, dayLen: 180 },   // seconds for full day
+    gameOver: false
+  };
+
+  // Room & objects (positions will be set in layoutRoom)
+  const room = { x:0, y:0, w:0, h:0, pad: 24 };
+  const bed  = { x:0, y:0, w:0, h:0, color:'#8e6e53' };
+  const tv   = { x:0, y:0, w:0, h:0, color:'#5b6370' };
+
+  function layoutRoom() {
+    const margin = 24 * DPR;
+    room.x = margin; room.y = margin;
+    room.w = W - margin*2;
+    room.h = H - margin*2;
+
+    // Bed in bottom-left quadrant
+    bed.w = Math.max(100*DPR, room.w*0.28);
+    bed.h = Math.max(60*DPR,  room.h*0.18);
+    bed.x = room.x + room.w*0.08;
+    bed.y = room.y + room.h*0.68;
+
+    // TV in top-right quadrant
+    tv.w = Math.max(80*DPR, room.w*0.22);
+    tv.h = Math.max(50*DPR, room.h*0.14);
+    tv.x = room.x + room.w*0.70;
+    tv.y = room.y + room.h*0.12;
+
+    // Player start center
+    if (!initialized) {
+      state.player.x = room.x + room.w * 0.5;
+      state.player.y = room.y + room.h * 0.55;
+      state.player.tx = state.player.x;
+      state.player.ty = state.player.y;
+      initialized = true;
+    }
+  }
+  let initialized = false;
+  resize();
+
+  // Input
+  function pointerPos(e) {
+    let x, y;
+    if (e.touches && e.touches[0]) {
+      x = e.touches[0].clientX; y = e.touches[0].clientY;
+    } else {
+      x = e.clientX; y = e.clientY;
+    }
+    return { x: x * DPR, y: y * DPR };
+  }
+
+  function inRect(p, r) {
+    return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+  }
+
+  function tap(e) {
+    if (state.gameOver) {
+      // Restart on any tap in overlay button
+      const p = pointerPos(e);
+      if (inRect(p, restartBtn)) restart();
+      return;
+    }
+    const p = pointerPos(e);
+
+    // Interactions
+    if (inRect(p, bed)) {
+      state.player.using = true; state.player.useType = 'sleep'; state.player.useTimer = 1.8; // seconds
+      // Move player to bedside
+      state.player.tx = bed.x + bed.w*0.5;
+      state.player.ty = bed.y + bed.h*0.9;
+      e.preventDefault(); return;
+    }
+    if (inRect(p, tv)) {
+      state.player.using = true; state.player.useType = 'tv'; state.player.useTimer = 1.8;
+      state.player.tx = tv.x + tv.w*0.5;
+      state.player.ty = tv.y + tv.h*0.9;
+      e.preventDefault(); return;
+    }
+
+    // Otherwise move
+    state.player.tx = p.x; state.player.ty = p.y;
+    e.preventDefault();
+  }
+  canvas.addEventListener('mousedown', tap);
+  canvas.addEventListener('touchstart', tap, { passive:false });
+
+  // Restart button rect (set in drawOverlay)
+  const restartBtn = { x:0, y:0, w:0, h:0 };
+
+  function restart() {
+    state.needs.energy = 100;
+    state.needs.fun = 100;
+    state.day.t = 0;
+    state.gameOver = false;
+    state.player.using = false;
+    state.player.useType = null;
+  }
+
+  // Loop
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); // seconds
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function update(dt) {
+    if (state.gameOver) return;
+
+    // Time of day
+    state.day.t = (state.day.t + dt) % state.day.dayLen;
+
+    // Needs decay (per minute -> per second)
+    const eDecay = state.decay.energy / 60;
+    const fDecay = state.decay.fun / 60;
+    state.needs.energy = clamp(state.needs.energy - eDecay * dt, 0, 100);
+    state.needs.fun    = clamp(state.needs.fun    - fDecay * dt, 0, 100);
+
+    // Player movement
+    const p = state.player;
+    const dx = p.tx - p.x;
+    const dy = p.ty - p.y;
+    const dist = Math.hypot(dx, dy);
+    const speed = p.using ? p.speed * 0.6 : p.speed;
+    if (dist > 2) {
+      const vx = (dx / dist) * speed * DPR * dt;
+      const vy = (dy / dist) * speed * DPR * dt;
+      p.x += vx; p.y += vy;
+    }
+
+    // Using actions
+    if (p.using) {
+      p.useTimer -= dt;
+      if (p.useType === 'sleep') {
+        state.needs.energy = clamp(state.needs.energy + 35 * dt, 0, 100);
+      } else if (p.useType === 'tv') {
+        state.needs.fun = clamp(state.needs.fun + 35 * dt, 0, 100);
+      }
+      if (p.useTimer <= 0) { p.using = false; p.useType = null; }
+    }
+
+    // Game over
+    if (state.needs.energy <= 0 || state.needs.fun <= 0) {
+      state.gameOver = true;
+    }
+  }
+
+  function drawRoom() {
+    // Day/Night tint
+    const prog = state.day.t / state.day.dayLen; // 0..1
+    const light = 0.75 - 0.35 * Math.cos(prog * Math.PI * 2); // 0.4..1.1
+    ctx.fillStyle = `rgba(${Math.floor(38*light)},${Math.floor(44*light)},${Math.floor(54*light)},1)`;
+    ctx.fillRect(0,0,W,H);
+
+    // Room floor
+    const floorColor = `rgba(${Math.floor(210*light)},${Math.floor(208*light)},${Math.floor(204*light)},1)`;
+    roundRect(room.x, room.y, room.w, room.h, 20*DPR, floorColor);
+
+    // Bed
+    roundRect(bed.x, bed.y, bed.w, bed.h, 14*DPR, bed.color);
+    label(bed.x+bed.w/2, bed.y-10*DPR, 'تخت (انرژی+)', '#ffffffaa');
+
+    // TV
+    roundRect(tv.x, tv.y, tv.w, tv.h, 10*DPR, tv.color);
+    screen(tv.x+8*DPR, tv.y+8*DPR, tv.w-16*DPR, tv.h-16*DPR, prog);
+    label(tv.x+tv.w/2, tv.y-10*DPR, 'تلویزیون (شادی+)', '#ffffffaa');
+  }
+
+  function drawPlayer() {
+    const p = state.player;
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ellipse(p.x, p.y + p.r*0.6, p.r*1.2, p.r*0.6);
+    // Body
+    ctx.fillStyle = p.using ? '#6cc48c' : '#4e9cff';
+    circle(p.x, p.y, p.r);
+    // Face dot
+    ctx.fillStyle = '#fff';
+    circle(p.x + p.r*0.35, p.y - p.r*0.2, 3*DPR);
+  }
+
+  function drawUI() {
+    const pad = 16*DPR, barW = 180*DPR, barH = 14*DPR, gap = 10*DPR;
+    drawBar(pad, pad, barW, barH, state.needs.energy/100, '#ff6b6b', 'انرژی');
+    drawBar(pad, pad + barH + gap, barW, barH, state.needs.fun/100, '#5ab0ff', 'شادی');
+
+    // Hint
+    label(pad + barW*0.5, pad + barH*2 + gap*3.2, 'برای حرکت لمس کن • روی تخت/تلویزیون بزن', '#00000088');
+
+    // Clock
+    const t = state.day.t, len = state.day.dayLen;
+    const hours = Math.floor((t/len)*24);
+    const clock = String(hours).padStart(2,'0') + ':00';
+    badge(W - pad - 70*DPR, pad, 70*DPR, 26*DPR, '#2b2f36', '#fff', clock);
+  }
+
+  function drawOverlay() {
+    if (!state.gameOver) return;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0,0,W,H);
+
+    label(W/2, H/2 - 50*DPR, 'روز تمام شد! یکی از نیازها صفر شد.', '#ffffff');
+
+    // Button
+    const bw = 200*DPR, bh = 56*DPR;
+    restartBtn.w = bw; restartBtn.h = bh;
+    restartBtn.x = W/2 - bw/2; restartBtn.y = H/2 - bh/2 + 20*DPR;
+    roundRect(restartBtn.x, restartBtn.y, bw, bh, 14*DPR, '#4e9cff');
+    label(W/2, restartBtn.y + bh/2 + 4*DPR, 'شروع دوباره', '#ffffff');
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    drawRoom();
+    drawPlayer();
+    drawUI();
+    drawOverlay();
+  }
+
+  // Helpers
+  function circle(x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+  function ellipse(x,y,rx,ry){ ctx.beginPath(); ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2); ctx.fill(); }
+  function roundRect(x,y,w,h,r,fill){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+    ctx.fillStyle = fill; ctx.fill();
+  }
+  function label(x,y,text,color){
+    ctx.fillStyle = color; ctx.font = `${14*DPR}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+  }
+  function drawBar(x,y,w,h,ratio,color,title){
+    // bg
+    roundRect(x,y,w,h, h/2, '#00000022');
+    // fill
+    roundRect(x,y,w*ratio,h, h/2, color);
+    // title
+    ctx.fillStyle = '#111a';
+    ctx.font = `${12*DPR}px sans-serif`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(title, x, y - 6*DPR);
+  }
+  function badge(x,y,w,h,bg,fg,text){
+    roundRect(x,y,w,h, h/2, bg);
+    ctx.fillStyle = fg;
+    ctx.font = `${13*DPR}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + w/2, y + h/2);
+  }
+  function screen(x,y,w,h,prog){
+    // animated bars like TV noise
+    roundRect(x,y,w,h, 6*DPR, '#1a1f27');
+    const bars = 8;
+    for (let i=0;i<bars;i++){
+      const yy = y + (i/bars)*h;
+      const hh = h/bars - 2*DPR;
+      ctx.fillStyle = `hsl(${200 + i*10},30%,${35 + (Math.sin((prog*6+i)*2*Math.PI)*10)}%)`;
+      ctx.fillRect(x+4*DPR, yy+2*DPR, w-8*DPR, Math.max(2*DPR, hh));
+    }
+  }
+})();
+</script>
+</body>
+  </html>
